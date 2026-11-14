@@ -1,15 +1,10 @@
-// Prompt wiring is the part users feel immediately: inject position and the
-// boost section must register where we claim, without a live desktop.
+// 注入正文永远是第一个 section；postPrompt 是唯一可选的附加段。
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { registerPromptSections } from "../lib/index.js";
-import { BOOST_TEXT } from "../lib/boost.js";
-import { writeTuning } from "../lib/tuning.js";
+import { GLOBAL_PROMPT_ORDER } from "../lib/identity.js";
 
-function harness(home) {
+function harness(overrides = {}) {
   const sections = [];
   const ctx = {
     systemPrompt: {
@@ -22,66 +17,45 @@ function harness(home) {
   };
   const config = {
     enabled: true,
-    capabilityProtocol: false,
-    injectOnce: false,
     postPrompt: "",
     postPromptOrder: 5100,
+    ...overrides,
   };
   return { ctx, config, sections };
 }
 
-function withHome(fn) {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "purge-prompt-"));
-  const prevHome = process.env.DSH_HOME;
-  process.env.DSH_HOME = home;
-  try {
-    fn(home);
-  } finally {
-    if (prevHome === undefined) delete process.env.DSH_HOME;
-    else process.env.DSH_HOME = prevHome;
-    fs.rmSync(home, { recursive: true, force: true });
-  }
-}
-
-test("default tuning registers the inject at the head and the boost at the tail", () => {
-  withHome(() => {
-    const h = harness();
-    registerPromptSections(h.ctx, h.config);
-    const byName = Object.fromEntries(h.sections.map((s) => [s.name, s]));
-    assert(byName["dsh-purge"], "head inject section");
-    assert(!byName["dsh-purge-tail"], "tail inject is opt-in");
-    assert(byName["dsh-purge-boost"], "boost section is on by default");
-    assert(
-      byName["dsh-purge-boost"].order > byName["dsh-purge"].order,
-      "boost must sort after the inject",
-    );
-    assert.equal(byName["dsh-purge-boost"].text({}), BOOST_TEXT);
-  });
+test("registers one inject section at the head", () => {
+  const h = harness();
+  registerPromptSections(h.ctx, h.config);
+  assert.equal(h.sections.length, 1);
+  const [section] = h.sections;
+  assert.equal(section.name, "dsh-purge");
+  assert.equal(section.order, GLOBAL_PROMPT_ORDER);
+  assert.equal(section.interpolate, false);
+  assert.equal(typeof section.text, "function");
+  assert.equal(section.text({}).length > 1000, true, "bundled prompt is injected");
 });
 
-test("injectPosition=tail moves the text and keeps a named placeholder", () => {
-  withHome((home) => {
-    writeTuning({ injectPosition: "tail" }, home);
-    const h = harness();
-    registerPromptSections(h.ctx, h.config);
-    const byName = Object.fromEntries(h.sections.map((s) => [s.name, s]));
-    assert(byName["dsh-purge"], "placeholder keeps the name patch 74 looks for");
-    assert(byName["dsh-purge-tail"], "tail section registered");
-    assert(
-      byName["dsh-purge-tail"].order > byName["dsh-purge"].order,
-      "tail must sort last",
-    );
-    assert.equal(byName["dsh-purge"].text({}), "", "head placeholder is empty");
-  });
+test("disabled plugin yields an empty section", () => {
+  const h = harness({ enabled: false });
+  registerPromptSections(h.ctx, h.config);
+  assert.equal(h.sections[0].text({}), "");
 });
 
-test("injectPosition=both registers head and tail with the same text", () => {
-  withHome((home) => {
-    writeTuning({ injectPosition: "both" }, home);
-    const h = harness();
-    registerPromptSections(h.ctx, h.config);
-    const names = h.sections.map((s) => s.name);
-    assert(names.includes("dsh-purge"));
-    assert(names.includes("dsh-purge-tail"));
-  });
+test("postPrompt is opt-in and validated", () => {
+  const off = harness({ postPrompt: "   " });
+  registerPromptSections(off.ctx, off.config);
+  assert.equal(off.sections.length, 1);
+
+  const on = harness({ postPrompt: "EXTRA", postPromptOrder: 5100 });
+  registerPromptSections(on.ctx, on.config);
+  assert.equal(on.sections.length, 2);
+  const post = on.sections.find((s) => s.name === "dsh-purge:post");
+  assert.ok(post);
+  assert.equal(post.order, 5100);
+  assert.equal(post.text({}), "EXTRA");
+
+  const bad = harness({ postPrompt: "EXTRA", postPromptOrder: GLOBAL_PROMPT_ORDER });
+  registerPromptSections(bad.ctx, bad.config);
+  assert.equal(bad.sections.some((s) => s.name === "dsh-purge:post"), false);
 });

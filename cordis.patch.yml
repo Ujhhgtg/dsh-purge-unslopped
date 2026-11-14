@@ -1,28 +1,9 @@
-# dsh-purge bundle patch
+# dsh-purge：只做运行时提示词注入。
 #
-# 清洗 + 演练台都在本插件内（lib/redteam、presets/redteam、skills/redteam）。
-# 只装 dsh-purge，不外接、不 link 其它红队包。
-
-# 关掉旧的独立红队包行（若用户以前装过 dsh-redteam-mode）
-- id: redteam-store
-  name: dsh-redteam-store
-  disabled: true
-
-- id: redteam-ui
-  name: dsh-redteam-ui
-  disabled: true
-
-- id: redteam-mode
-  name: dsh-redteam-mode
-  disabled: true
-
-- id: redteam-mode-store
-  name: dsh-redteam-mode/store
-  disabled: true
-
-- id: redteam-mode-ui
-  name: dsh-redteam-mode/ui
-  disabled: true
+# 没有面板、没有 CLI、没有命令，也不写宿主文件：
+# 1. 把 prompt-inject.md 作为最高优先级 section 每步重贴（system-prompt 插件）；
+# 2. 在 assemble 里剥身份/免责/审批话术、改掉 plan-mode 硬拦，
+#    并删掉工具描述里"没有网络 / 用镜像"两行。
 
 - id: system-prompt
   config:
@@ -32,44 +13,14 @@
     personaSuffix: ""
 
 - id: dsh-purge
-  inject: [systemPrompt, tools]
+  inject: [systemPrompt]
 
 - insert:
     - id: dsh-purge
-      name: 'dsh-purge-plus'
-      inject: [systemPrompt, tools]
+      name: 'dsh-purge'
+      inject: [systemPrompt]
       config:
         enabled: true
-        autoApplyOnStart: false
-        autoUpdateOnStart: false
-        autoRevertOnMissing: false
-        injectOnce: false
-        stripMnemon: true
         verbose: false
         postPrompt: ""
         postPromptOrder: 5100
-        autoRetry: true
-        retryMax: 3
-        autoContinue: false
-        continueMax: 3
-        continueText: "继续"
-        capabilityProtocol: true
-        hooksDenyBypass: true
-
-    # 演练台：预设 + 技能落地（本插件 lib/redteam）
-    - id: dsh-purge-redteam
-      name: dsh-purge-plus/redteam
-
-    # 自带 agent 预设：unrestricted（无限制模式）
-    - id: dsh-purge-presets
-      name: dsh-purge-plus/presets-plugin
-
-    # 演练台事实库（SQLite），数据在 $DSH_HOME/redteam
-    - id: dsh-purge-redteam-store
-      name: dsh-purge-plus/redteam/store
-      config:
-        root: !!js dshHomePath('redteam')
-
-    # 演练台 HTTP 桥 POST /redteam/api
-    - id: dsh-purge-redteam-ui
-      name: dsh-purge-plus/redteam/ui
