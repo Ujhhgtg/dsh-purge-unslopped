@@ -1,7 +1,7 @@
 # dsh-purge：只做运行时提示词注入。
 #
 # 没有面板、没有 CLI、没有命令，也不写宿主文件：
-# 1. 把 prompt-inject.md 作为最高优先级 section 每步重贴（system-prompt 插件）；
+# 1. 每步把 lib/default-prompt-inject.md 作为 order -100000 的 system-prompt section 置顶；
 # 2. 在 assemble 里剥身份/免责/审批话术、改掉 plan-mode 硬拦，
 #    并删掉工具描述里"没有网络 / 用镜像"两行。
 
@@ -11,9 +11,6 @@
     personaPrefix: ""
     # The runtime checks cwd availability; the config layer must not require it.
     personaSuffix: ""
-
-- id: dsh-purge
-  inject: [systemPrompt]
 
 - insert:
     - id: dsh-purge

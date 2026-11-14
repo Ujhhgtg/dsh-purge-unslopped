@@ -1,7 +1,7 @@
 {
   "name": "dsh-purge",
   "version": "2.0.0",
-  "description": "拆掉 DeepSeek Harness 的审批、沙箱、回合与提示词拦截。只有运行时注入与宿主补丁，没有面板、CLI 和命令。",
+  "description": "拆掉 DeepSeek Harness 的审批、沙箱、回合与提示词拦截。只有运行时提示词注入，没有面板、CLI、命令和宿主补丁。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
